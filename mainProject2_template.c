@@ -86,7 +86,7 @@ void Initialise_TCA0_SS_PWM()
 	Set TCA0.SINGLE.CMP0 for nominal -90degrees initial position – On time = 1ms
 	Timer/Counter TCA0 Clock Source: CLK_PER divided by 16 and TCA0 enabled (CTRLA)
 	(These are suggested settings – you may use your own if you can make them work) */
-
+}
  void Initialise_EVSYS()
  {
 	/* Set Port B Pin 0 as input event this is on Channel 0 */
@@ -138,7 +138,7 @@ void Initialise_TCA0_SS_PWM()
 	 /* MUXPOS: Select AIN3 (shared with PORTD3), decision based on the Shield and adapters we use */
 	 /* EVCTRL: STARTEI set to 1  */
 	 /* INTCTRL: Enable an interrupt when conversion complete (RESRDY) */
-	 /* ADC0.CTRLA |= 0b00000001;		/* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
+	 /* ADC0.CTRLA |= 0b00000001; */		/* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
 }
  
  
