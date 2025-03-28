@@ -87,25 +87,35 @@ void Initialise_TCA0_SS_PWM()
 	Set TCA0.SINGLE.CMP0 for nominal -90degrees initial position – On time = 1ms
 	Timer/Counter TCA0 Clock Source: CLK_PER divided by 16 and TCA0 enabled (CTRLA)
 	(These are suggested settings – you may use your own if you can make them work) */
+	
+	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
+	TCA0.CTRLB = 0b00000011; // Single Slope PWM
+	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency
+	// CMP0 = 
+	TCA0.SINGLE.CMP0 = 
+	
 }
  void Initialise_EVSYS()
  {
 	/* Set Port B Pin 0 as input event this is on Channel 0 */
-	EVSYS.CHANNEL0 = 0b01001000;
+	PORTB.DIRCLR = 0b00000001; // clears bit 0, setting PIN0 to input
 	/* Connect user to event channel 0  */
+	EVSYS.CHANNEL0 = 0b01001000;
 	/* TCB0 is the Channel 0 User */
-	EVSYS.USERTCB0 = EVSYS_CHANNEL_CHANNEL0_gc;
+	EVSYS.USERTCB0 = 0b00000001;
 	
 	/* Set Port E Pin 3 (PE3) as input event this is on Channel 4 */
-	EVSYS.CHANNEL4 = 0b01000011;
+	PORTE.DIRCLR = 0b00000011; // clears bits 0 and 1, setting PIN3 to input
 	/* Connect user to event channel 4 */
+	EVSYS.CHANNEL4 = 0b01000011;
 	/* TCB2 is the Channel 4 user */
-	EVSYS.USERTCB2 = EVSYS_CHANNEL_CHANNEL4_gc;
+	EVSYS.USERTCB2 = 0b00000100;
 	
 	/* Set TCB3 as the Generator for any other Channel */
-	EVSYS.CHANNEL3 = 0b10100110;
+	PORTC.DIRCLR = 0b00000001;  // clears bit 0, setting PIN0 to input
+	EVSYS.CHANNEL3 = 0b01000000;
 	/* ADC0 is the user of the Channel selected for TCB3 Generator */
-	EVSYS.USERADC0 = EVSYS_CHANNEL_CHANNEL3_gc;
+	EVSYS.USERADC0 = 0b00000011;
 	/* TCB3 starts ADC0  */
 	/* Assuming enable when TCB3 is enabled */
 }
@@ -113,13 +123,14 @@ void Initialise_TCA0_SS_PWM()
  void Initialise_TCB0_ICP_PW()
  {
 	/* Enable TCB0 and set CLK_PER divider to 2: Timer clock = 10MHz now */
-	TCB0.CTRLA = TCB_CLKSEL_CLKDIV2_gc;
+	TCB0.CTRLA = 0b00000010; // not enabled yet
 	/* Configure TCB0 in Input Capture Pulse Width mode */
-	TCB0.CTRLB = TCB_CNTMODE_PW_gc;
+	TCB0.CTRLB = 0b00000100; // PW CNTMODE selected
  	/* Enable Capture or Timeout interrupt */
-	TCB0.INTCTRL = TCB_CAPT_bm;
+	TCB0.INTCTRL = 0b00000001;
  	/* Enable Event Input and Event Edge, Rising Edge selected */
-	TCB0.EVCTRL = TCB_CAPTEI_bm;
+	TCB0.EVCTRL = 0b00000001; // bit 4 = 0 for positive edge event input capture
+						      // bit 0 = 1 enables capture event input
 	/* Hint: consult TCB0_ICP_PW_Time_Ex.c */
 	
 	/* Enables TCB0 */
@@ -129,13 +140,14 @@ void Initialise_TCA0_SS_PWM()
  void Initialise_TCB2_ICP_PWFRQ()
  {
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
-	 TCB2.CTRLA = TCB_CLKSEL_CLKDIV2_gc;
+	 TCB2.CTRLA = 0b00000010; // not yet enabled
 	 /* Configure TCB0 in Input Capture Clock Frequency Measurement mode */
-	 TCB2.CTRLB = TCB_CNTMODE_FRQPW_gc;
+	 TCB2.CTRLB = 0b00000011; // FRQ CNTMODE selected
 	 /* Enable Capture or Timeout interrupt */
-	 TCB2.INTCTRL = TCB_CAPT_bm;
+	 TCB2.INTCTRL = 0b00000001;
 	 /* Enable Event Input and Event Edge, Rising Edge selected */
-	 TCB2.EVCTRL = TCB_CAPTEI_bm;
+	 TCB2.EVCTRL = 0b00000001; // bit 4 = 0 for positive edge event input capture
+							   // bit 0 = 1 enables capture event input
 	 /* Hint: consult TCB0_ICP_PWFr_Time_Ex.c */
 	 
 	 /* Enables TCB2 */
@@ -147,12 +159,17 @@ void Initialise_TCA0_SS_PWM()
 	 /* enable overflow interrupt */
 	 TCB3.INTCTRL = (0<<1);
 	 /* PER divided by 2 and Enable the TCB3 */
-	 TCB3.CTRLA = TCB_CLKSEL_CLKDIV2_gc;
+	 TCB3.CTRLA = 0b00000010; // not yet enabled
 	 /* Periodic Interrupt Mode */
 	 TCB3.CTRLB = 0b00000000;
 	 /* Set TCB3.CCMP for 5ms interrupt rate */
-	 //TCB3.CCMP = 
+	 // f(TCB) = 20MHz / 2 = 10MHz
+	 // 5ms = 5000us, 5000us / (1/10MHz) = 50000us
+	 TCB3.CCMP = 50000;
 	 /* Enable the interrupt */
+	 TCB3.INTCTRL = 0b00000001;
+	 
+	 TCB3.CTRLA |= 0b00000001;
 	 
  }
 
