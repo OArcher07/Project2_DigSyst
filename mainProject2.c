@@ -3,6 +3,7 @@
  *
  * Created: 11/03/2025 17:37:30
  * Author : Ciaran.MacNamee
+ * Modified By: Amelia Humphrey & Olivia Archer
  */ 
 
 
@@ -86,59 +87,110 @@ void Initialise_TCA0_SS_PWM()
 	Set TCA0.SINGLE.CMP0 for nominal -90degrees initial position – On time = 1ms
 	Timer/Counter TCA0 Clock Source: CLK_PER divided by 16 and TCA0 enabled (CTRLA)
 	(These are suggested settings – you may use your own if you can make them work) */
+	
+	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
+	TCA0.CTRLB = 0b00000011; // Single Slope PWM
+	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency
+	// CMP0 = 
+	TCA0.SINGLE.CMP0 = 
+	
 }
  void Initialise_EVSYS()
  {
 	/* Set Port B Pin 0 as input event this is on Channel 0 */
+	PORTB.DIRCLR = 0b00000001; // clears bit 0, setting PIN0 to input
 	/* Connect user to event channel 0  */
+	EVSYS.CHANNEL0 = 0b01001000;
 	/* TCB0 is the Channel 0 User */
+	EVSYS.USERTCB0 = 0b00000001;
 	
-	/* Set Port 0 Pin 3 (PE3) as input event this is on Channel 4 */
+	/* Set Port E Pin 3 (PE3) as input event this is on Channel 4 */
+	PORTE.DIRCLR = 0b00000011; // clears bits 0 and 1, setting PIN3 to input
 	/* Connect user to event channel 4 */
+	EVSYS.CHANNEL4 = 0b01000011;
 	/* TCB2 is the Channel 4 user */
+	EVSYS.USERTCB2 = 0b00000100;
 	
 	/* Set TCB3 as the Generator for any other Channel */
+	PORTC.DIRCLR = 0b00000001;  // clears bit 0, setting PIN0 to input
+	EVSYS.CHANNEL3 = 0b01000000;
 	/* ADC0 is the user of the Channel selected for TCB3 Generator */
+	EVSYS.USERADC0 = 0b00000011;
 	/* TCB3 starts ADC0  */
+	/* Assuming enable when TCB3 is enabled */
 }
 
  void Initialise_TCB0_ICP_PW()
  {
 	/* Enable TCB0 and set CLK_PER divider to 2: Timer clock = 10MHz now */
+	TCB0.CTRLA = 0b00000010; // not enabled yet
 	/* Configure TCB0 in Input Capture Pulse Width mode */
+	TCB0.CTRLB = 0b00000100; // PW CNTMODE selected
  	/* Enable Capture or Timeout interrupt */
+	TCB0.INTCTRL = 0b00000001;
  	/* Enable Event Input and Event Edge, Rising Edge selected */
+	TCB0.EVCTRL = 0b00000001; // bit 4 = 0 for positive edge event input capture
+						      // bit 0 = 1 enables capture event input
 	/* Hint: consult TCB0_ICP_PW_Time_Ex.c */
+	
+	/* Enables TCB0 */
+	TCB0.CTRLA |= 0b00000001;
  }
  
  void Initialise_TCB2_ICP_PWFRQ()
  {
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
+	 TCB2.CTRLA = 0b00000010; // not yet enabled
 	 /* Configure TCB0 in Input Capture Clock Frequency Measurement mode */
+	 TCB2.CTRLB = 0b00000011; // FRQ CNTMODE selected
 	 /* Enable Capture or Timeout interrupt */
+	 TCB2.INTCTRL = 0b00000001;
 	 /* Enable Event Input and Event Edge, Rising Edge selected */
+	 TCB2.EVCTRL = 0b00000001; // bit 4 = 0 for positive edge event input capture
+							   // bit 0 = 1 enables capture event input
 	 /* Hint: consult TCB0_ICP_PWFr_Time_Ex.c */
+	 
+	 /* Enables TCB2 */
+	 TCB2.CTRLA |= 0b00000001;
  }
  
  void TCB3_init(void)
  {
 	 /* enable overflow interrupt */
-	 /* PER divided by 2 and Enable the TCB0 */
+	 TCB3.INTCTRL = (0<<1);
+	 /* PER divided by 2 and Enable the TCB3 */
+	 TCB3.CTRLA = 0b00000010; // not yet enabled
 	 /* Periodic Interrupt Mode */
+	 TCB3.CTRLB = 0b00000000;
 	 /* Set TCB3.CCMP for 5ms interrupt rate */
+	 // f(TCB) = 20MHz / 2 = 10MHz
+	 // 5ms = 5000us, 5000us / (1/10MHz) = 50000us
+	 TCB3.CCMP = 50000;
 	 /* Enable the interrupt */
+	 TCB3.INTCTRL = 0b00000001;
+	 
+	 TCB3.CTRLA |= 0b00000001;
 	 
  }
+
  void ADC0_init(void)
  {
 	 /* CTRLA: 10-bit resolution selected, Free Running Mode NOT selected, ADC0 not enabled yet */
+	 ADC0.CTRLA = 0b00000000;
 	 /* CTRLB: Simple No Accumulation operation selected, this line could be omitted */
+	 ADC0.CTRLB = 0b00000000;
 	 /* CTRLC: SAMPCAP=1; REFSEL: VDD; PRESC set to DIV128 */
+	 ADC0.CTRLC = 0b01010110;
 	 /* CTRLD: INITDLY set to 16 CLK_ADC cycles */
+	 ADC0.CTRLD = 0b00100000;
 	 /* MUXPOS: Select AIN3 (shared with PORTD3), decision based on the Shield and adapters we use */
+	 ADC0.MUXPOS = 0b00000011;
 	 /* EVCTRL: STARTEI set to 1  */
+	 ADC0.EVCTRL = (0<<1);
 	 /* INTCTRL: Enable an interrupt when conversion complete (RESRDY) */
-	 /* ADC0.CTRLA |= 0b00000001; */		/* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
+	 ADC0.INTCTRL = (0<<1);
+	 /* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
+	 ADC0.CTRLA |= 0b00000001;	
 }
  
  
@@ -203,7 +255,7 @@ void Initialise_TCA0_SS_PWM()
 					break;
 				case 'd': 
 				case 'D':
-					/* Calculate distnce for HC-SR04 Sensor to and object and 
+					/* Calculate distance for HC-SR04 Sensor to and object and 
 						report to user */
 					break;
 				case 's': 
@@ -280,7 +332,7 @@ void Initialise_TCA0_SS_PWM()
 		}
 		else if (continuousVolts) {
 			/* if new ADC0 data available, calculate the voltage in mV 
-			and report the balue to the user */
+			and report the value to the user */
 		}
 	}
  }
