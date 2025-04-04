@@ -52,6 +52,9 @@
  uint8_t newDistanceData, newTimeData, newADC0Data;
  uint16_t adc_reading;		/* ADC0 RES has 10-bits, read it into a 16-bit variable */
  uint8_t ServoFollowADC;    /* Servo position based on ADC0 RES value */
+ 
+ uint16_t trigCount = 0; // software trigger counter for TCB3
+ uint16_t ruptCount = 0; // software interrupt counter for TCB3
 
 
 void CLOCK_init (void);
@@ -230,13 +233,13 @@ void Initialise_TCA0_SS_PWM()
 	/* set UNO D0-D7 to all outputs, also LED8 and LED9  */
 	InitialiseLED_PORT_bits();
  
-	Set_Clear_Ports(0);		/* Initialise LEDS to all OFF */
+	Set_Clear_Ports(0);		/* Initialize LEDS to all OFF */
  
 	Initialise_TCA0_SS_PWM();
 	Initialise_EVSYS();
-//	Initialise_TCB0_ICP_PW();
+	Initialise_TCB0_ICP_PW();
 	USART3_init();
-//	Initialise_TCB2_ICP_PWFRQ();
+	Initialise_TCB2_ICP_PWFRQ();
 	TCB3_init();
 	ADC0_init();
 	
@@ -323,15 +326,32 @@ void Initialise_TCA0_SS_PWM()
 					/* Stop the Servomotor from moving */
 					break;
 				case '1':
+					ruptCount = 1;
+					break;
 				case '2':
+					ruptCount = 2;
+					break;
 				case '3':
+					ruptCount = 3;
+					break;
 				case '4':
+					ruptCount = 4;
+					break;
 				case '5':
+					ruptCount = 5;
+					break;
 				case '6':
+					ruptCount = 6;
+					break;
 				case '7':
+					ruptCount = 7;
+					break;
 				case '8':
+					ruptCount = 8;
+					break;
 				case '9':
 					/* Set the servomotor speed based on the specification table */
+					ruptCount = 9;
 					break;
 				default:
 					sprintf(str_buffer, "Unrecognized input: %c\n", ch);
@@ -390,7 +410,7 @@ ISR(TCB0_INT_vect)
 	/* Use this ISR to capture the HC-SR04 Pulse Width, which can be used 
 	   to calculate the distance to an object */
 	
-	// newDistanceData = 1;
+	//newDistanceData = 1;
  }
  
  
@@ -407,44 +427,41 @@ ISR(TCB0_INT_vect)
  ISR(TCB3_INT_vect)
  {
 	TCB3.INTFLAGS = TCB_CAPT_bm;	/* Software clears the INTFLAG */
-	LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
 	
 	/* Use a software counter to send a trigger pulse on PORTC bit 6 (LED_Array[4])*/
-	static uint16_t softCount = 0;
-	static uint16_t servCount = 0;
-	if(softCount%2 == 1){
+	// 10 * 5ms = 50ms
+	trigCount++;
+	if(trigCount >= 10){
 		LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
-		softCount++;
-		/* Set the Port bit high, delay 10 us (use a software delay loop (_delay_us(10)
-	   the Set the Port bit low again */
+		/* Set the Port bit high, delay 10 us (use a software delay loop _delay_us(10)) and then set the Port bit low again */
 		_delay_ms(10);
-		LED_Array[4].LED_PORT->OUTCLR = LED_Array[4].bit_mapping;		
+		LED_Array[4].LED_PORT->OUTCLR = LED_Array[4].bit_mapping;
+		
+		trigCount = 0;		
 	}
 	/* If ServoFollowADC == 0, Use a second software counter to see whether to move 
 	   the Servo motor to its next position. The software counter should count to the 
 	   value set by the numbers '1' to '9'. '0' is a special case */
 	if(ServoFollowADC == 0){
-		if(servCount == 1){
-		
-		} else if(servCount == 2){
+		if(ruptCount == 1){
+			
+		} else if(ruptCount == 2){
 	
-		} else if(servCount == 3){
+		} else if(ruptCount == 3){
 			
-		} else if(servCount == 4){
+		} else if(ruptCount == 4){
 			
-		} else if(servCount == 5){
+		} else if(ruptCount == 5){
 			
-		} else if(servCount == 6){
+		} else if(ruptCount == 6){
 			
-		} else if(servCount == 7){
+		} else if(ruptCount == 7){
 			
-		} else if(servCount == 8){
+		} else if(ruptCount == 8){
 			
-		} else if(servCount == 9){
+		} else if(ruptCount == 9){
 			
 		}
-		
-		servCount++;
 	}
 	/* Set the new servo position using TCA0.SINGLE.CMP0BUF */
  }
@@ -460,14 +477,17 @@ ISR(TCB0_INT_vect)
 	 } else {
 		 LED_Array[7].LED_PORT->OUTCLR = LED_Array[7].bit_mapping;
 	 }
+	 
 	 /* If ServoFollowADC == 1 set the servomotor position to a position based on the 
 		adc_reading value */
-	 /* Set the servo position using TCA0.SINGLE.CMP0BUF */
-	 
-	 LED_Array[7].LED_PORT->OUTSET = LED_Array[7].bit_mapping;
-	 
-	 if(ServoFollowADC) {
-		TCA0.SINGLE.CMP0BUF = 1250 + adc_reading;
+	 if(ServoFollowADC == 1) {
+		 /* Set the servo position using TCA0.SINGLE.CMP0BUF */
+		 TCA0.SINGLE.CMP0BUF = 1250 + adc_reading;
+		 if (TCA0.SINGLE.CMP0BUF > 2500) {
+			 TCA0.SINGLE.CMP0BUF = 2500;
+		 } else if(TCA0.SINGLE.CMP0BUF < 1250) {
+			 TCA0.SINGLE.CMP0BUF = 1250;
+		 }
 	 }
 }
  
