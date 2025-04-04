@@ -21,6 +21,19 @@
  
  #include <util/delay.h>
  #include <stdio.h>
+ 
+ // define voltages
+ #define ZERO_5V 102
+ #define ONE_0V	205
+ #define ONE_5V	307
+ #define TWO_0V	409
+ #define TWO_5V	512
+ #define THREE_0V 614
+ #define THREE_5V 716
+ #define FOUR_0V	818
+ #define FOUR_5V 921
+ #define FIVE_0V 1023
+
 
  /* Use a struct to make the association between PORTs and bits connected to the LED array more explicit */
  struct LED_BITS
@@ -89,10 +102,10 @@ void Initialise_TCA0_SS_PWM()
 	(These are suggested settings – you may use your own if you can make them work) */
 	
 	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
-	TCA0.CTRLB = 0b00000011; // Single Slope PWM
-	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency
-	// CMP0 = 
-	TCA0.SINGLE.CMP0 = 
+	TCA0.SINGLE.CTRLA = 0b0001001; // DIV16 selected and TCA0 enabled
+	TCA0.SINGLE.CTRLB = 0b00000011; // Single Slope PWM
+	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency --> 20ms
+	TCA0.SINGLE.CMP0 = 1250; // (20ms * 0.1) = 1ms --> -90 degrees
 	
 }
  void Initialise_EVSYS()
@@ -109,13 +122,14 @@ void Initialise_TCA0_SS_PWM()
 	/* Connect user to event channel 4 */
 	EVSYS.CHANNEL4 = 0b01000011;
 	/* TCB2 is the Channel 4 user */
-	EVSYS.USERTCB2 = 0b00000100;
+	EVSYS.USERTCB2 = EVSYS_CHANNEL_CHANNEL4_gc;
 	
 	/* Set TCB3 as the Generator for any other Channel */
-	PORTC.DIRCLR = 0b00000001;  // clears bit 0, setting PIN0 to input
-	EVSYS.CHANNEL3 = 0b01000000;
+	EVSYS.CHANNEL3 = 0b10100110;
 	/* ADC0 is the user of the Channel selected for TCB3 Generator */
-	EVSYS.USERADC0 = 0b00000011;
+	EVSYS.USERADC0 = 0b00000100;    // Channel selected is n-1
+									// 0b00000011 selects Channel 2
+									// 0b00000100 selects Channel 3
 	/* TCB3 starts ADC0  */
 	/* Assuming enable when TCB3 is enabled */
 }
@@ -157,7 +171,7 @@ void Initialise_TCA0_SS_PWM()
  void TCB3_init(void)
  {
 	 /* enable overflow interrupt */
-	 TCB3.INTCTRL = (0<<1);
+	 TCB3.INTCTRL = 0b00000001;
 	 /* PER divided by 2 and Enable the TCB3 */
 	 TCB3.CTRLA = 0b00000010; // not yet enabled
 	 /* Periodic Interrupt Mode */
@@ -169,8 +183,8 @@ void Initialise_TCA0_SS_PWM()
 	 /* Enable the interrupt */
 	 TCB3.INTCTRL = 0b00000001;
 	 
+	 /* Enables TCB3 */
 	 TCB3.CTRLA |= 0b00000001;
-	 
  }
 
  void ADC0_init(void)
@@ -186,11 +200,12 @@ void Initialise_TCA0_SS_PWM()
 	 /* MUXPOS: Select AIN3 (shared with PORTD3), decision based on the Shield and adapters we use */
 	 ADC0.MUXPOS = 0b00000011;
 	 /* EVCTRL: STARTEI set to 1  */
-	 ADC0.EVCTRL = (0<<1);
+	 ADC0.EVCTRL = (1<<0);
 	 /* INTCTRL: Enable an interrupt when conversion complete (RESRDY) */
-	 ADC0.INTCTRL = (0<<1);
+	 ADC0.INTCTRL = (1<<0);
 	 /* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
 	 ADC0.CTRLA |= 0b00000001;	
+	 //ADC0.COMMAND = 1;
 }
  
  
@@ -219,9 +234,9 @@ void Initialise_TCA0_SS_PWM()
  
 	Initialise_TCA0_SS_PWM();
 	Initialise_EVSYS();
-	Initialise_TCB0_ICP_PW();
+//	Initialise_TCB0_ICP_PW();
 	USART3_init();
-	Initialise_TCB2_ICP_PWFRQ();
+//	Initialise_TCB2_ICP_PWFRQ();
 	TCB3_init();
 	ADC0_init();
 	
@@ -302,7 +317,7 @@ void Initialise_TCA0_SS_PWM()
 				case 'g':
 				case 'G':
 					ServoFollowADC = 0;
-					/* Set the Servo mode move at a user selected speed */
+					/* Set the Servo mode move at a user selected */
 					break;
 				case '0':
 					/* Stop the Servomotor from moving */
@@ -392,14 +407,45 @@ ISR(TCB0_INT_vect)
  ISR(TCB3_INT_vect)
  {
 	TCB3.INTFLAGS = TCB_CAPT_bm;	/* Software clears the INTFLAG */
+	LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
 	
-	/* Use a software counter to send a trigger pulse on PORTC bit 6 (LED_Array[4] */
-	/* Set the Port bit high, delay 10 us (use a software delay loop (_delay_us(10)
+	/* Use a software counter to send a trigger pulse on PORTC bit 6 (LED_Array[4])*/
+	static uint16_t softCount = 0;
+	static uint16_t servCount = 0;
+	if(softCount%2 == 1){
+		LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
+		softCount++;
+		/* Set the Port bit high, delay 10 us (use a software delay loop (_delay_us(10)
 	   the Set the Port bit low again */
-	
+		_delay_ms(10);
+		LED_Array[4].LED_PORT->OUTCLR = LED_Array[4].bit_mapping;		
+	}
 	/* If ServoFollowADC == 0, Use a second software counter to see whether to move 
 	   the Servo motor to its next position. The software counter should count to the 
 	   value set by the numbers '1' to '9'. '0' is a special case */
+	if(ServoFollowADC == 0){
+		if(servCount == 1){
+		
+		} else if(servCount == 2){
+	
+		} else if(servCount == 3){
+			
+		} else if(servCount == 4){
+			
+		} else if(servCount == 5){
+			
+		} else if(servCount == 6){
+			
+		} else if(servCount == 7){
+			
+		} else if(servCount == 8){
+			
+		} else if(servCount == 9){
+			
+		}
+		
+		servCount++;
+	}
 	/* Set the new servo position using TCA0.SINGLE.CMP0BUF */
  }
  
@@ -407,11 +453,22 @@ ISR(TCB0_INT_vect)
  {
 	 adc_reading = ADC0.RES;
 	 
-	 // newADC0Data = 1;
+	 newADC0Data = 1;
 	 /* set the LED[7] on/off based on the adc_reading */
+	 if(adc_reading > THREE_5V) {
+		 LED_Array[7].LED_PORT->OUTSET = LED_Array[7].bit_mapping;
+	 } else {
+		 LED_Array[7].LED_PORT->OUTCLR = LED_Array[7].bit_mapping;
+	 }
 	 /* If ServoFollowADC == 1 set the servomotor position to a position based on the 
 		adc_reading value */
-	/* Set the servo position using TCA0.SINGLE.CMP0BUF */
+	 /* Set the servo position using TCA0.SINGLE.CMP0BUF */
+	 
+	 LED_Array[7].LED_PORT->OUTSET = LED_Array[7].bit_mapping;
+	 
+	 if(ServoFollowADC) {
+		TCA0.SINGLE.CMP0BUF = 1250 + adc_reading;
+	 }
 }
  
 
