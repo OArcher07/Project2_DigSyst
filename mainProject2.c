@@ -30,7 +30,7 @@
  #define TWO_5V	512
  #define THREE_0V 614
  #define THREE_5V 716
- #define FOUR_0V	818
+ #define FOUR_0V 818
  #define FOUR_5V 921
  #define FIVE_0V 1023
 
@@ -55,6 +55,7 @@
  
  uint16_t trigCount = 0; // software trigger counter for TCB3
  uint16_t ruptCount = 0; // software interrupt counter for TCB3
+ uint32_t milliVolts = 0; // millivolts placeholder
 
 
 void CLOCK_init (void);
@@ -67,6 +68,7 @@ void Set_Clear_Ports(uint8_t set);
 void USART3_init(void);
 void ADC0_init(void);
 void sendmsg(char* s); 
+void servoMove(double num);
 
 /* Later add TCB1 initialisation to detect 555 oscillation stopped */
 
@@ -95,7 +97,7 @@ void USART3_init(void) {
 	USART3.CTRLA = USART_TXCIE_bm;
 }
 
-void Initialise_TCA0_SS_PWM()
+void Initialise_TCA0_SS_PWM() // works
 {
 	/* Make PORTA Bit 0 an output (may be done in InitialiseLED_PORT_bits())
 	Set TCA0 to Single Slope PWM (CTRLB)
@@ -106,7 +108,7 @@ void Initialise_TCA0_SS_PWM()
 	
 	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
 	TCA0.SINGLE.CTRLA = 0b0001001; // DIV16 selected and TCA0 enabled
-	TCA0.SINGLE.CTRLB = 0b00000011; // Single Slope PWM
+	TCA0.SINGLE.CTRLB = 0b00010011; // Single Slope PWM, o
 	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency --> 20ms
 	TCA0.SINGLE.CMP0 = 1250; // (20ms * 0.1) = 1ms --> -90 degrees
 	
@@ -171,7 +173,7 @@ void Initialise_TCA0_SS_PWM()
 	 TCB2.CTRLA |= 0b00000001;
  }
  
- void TCB3_init(void)
+ void TCB3_init(void) // works
  {
 	 /* enable overflow interrupt */
 	 TCB3.INTCTRL = 0b00000001;
@@ -190,7 +192,7 @@ void Initialise_TCA0_SS_PWM()
 	 TCB3.CTRLA |= 0b00000001;
  }
 
- void ADC0_init(void)
+ void ADC0_init(void) //works
  {
 	 /* CTRLA: 10-bit resolution selected, Free Running Mode NOT selected, ADC0 not enabled yet */
 	 ADC0.CTRLA = 0b00000000;
@@ -258,6 +260,9 @@ void Initialise_TCA0_SS_PWM()
 				case 'v': 
 				case 'V':
 					/* Calculate milliVolts using integer arithmetic and send to user */
+					milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
+					sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+					sendmsg(str_buffer);
 					break;
 				case 't': 
 				case 'T':
@@ -316,42 +321,67 @@ void Initialise_TCA0_SS_PWM()
 				case 'F':
 					ServoFollowADC = 1;
 					/* Set the Servo mode to follow ADC0 RES */
+					sprintf(str_buffer, "Servo mode: follow ADC0 RES\n");
+					sendmsg(str_buffer);
 					break;
 				case 'g':
 				case 'G':
 					ServoFollowADC = 0;
 					/* Set the Servo mode move at a user selected */
+					sprintf(str_buffer, "Servo mode: user selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '0':
 					/* Stop the Servomotor from moving */
+					sprintf(str_buffer, "0 selected\n");
+					sendmsg(str_buffer);
+					ruptCount = 0;
 					break;
 				case '1':
 					ruptCount = 1;
+					sprintf(str_buffer, "1 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '2':
 					ruptCount = 2;
+					sprintf(str_buffer, "2 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '3':
 					ruptCount = 3;
+					sprintf(str_buffer, "3 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '4':
 					ruptCount = 4;
+					sprintf(str_buffer, "4 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '5':
 					ruptCount = 5;
+					sprintf(str_buffer, "5 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '6':
 					ruptCount = 6;
+					sprintf(str_buffer, "6 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '7':
 					ruptCount = 7;
+					sprintf(str_buffer, "7 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '8':
 					ruptCount = 8;
+					sprintf(str_buffer, "8 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '9':
 					/* Set the servomotor speed based on the specification table */
-					ruptCount = 9;
+					ruptCount = 9;					
+					sprintf(str_buffer, "9 selected\n");
+					sendmsg(str_buffer);
 					break;
 				default:
 					sprintf(str_buffer, "Unrecognized input: %c\n", ch);
@@ -368,6 +398,10 @@ void Initialise_TCA0_SS_PWM()
 		else if (continuousVolts) {
 			/* if new ADC0 data available, calculate the voltage in mV 
 			and report the value to the user */
+			/* Calculate milliVolts using integer arithmetic and send to user */
+			milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
+			sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+			sendmsg(str_buffer);
 		}
 	}
  }
@@ -444,26 +478,33 @@ ISR(TCB0_INT_vect)
 	   value set by the numbers '1' to '9'. '0' is a special case */
 	if(ServoFollowADC == 0){
 		if(ruptCount == 1){
-			
+			servoMove(1.0);
 		} else if(ruptCount == 2){
-	
+			servoMove(0.75);
 		} else if(ruptCount == 3){
-			
+			servoMove(0.5);
 		} else if(ruptCount == 4){
-			
+			servoMove(0.4);
 		} else if(ruptCount == 5){
-			
+			servoMove(0.25);
 		} else if(ruptCount == 6){
-			
+			servoMove(0.2);
 		} else if(ruptCount == 7){
-			
+			servoMove(0.15);
 		} else if(ruptCount == 8){
-			
+			servoMove(0.1);
 		} else if(ruptCount == 9){
-			
+			servoMove(0.05);
+		} else if(ruptCount == 0){
+			TCA0.SINGLE.CMP0BUF = 0;
 		}
 	}
 	/* Set the new servo position using TCA0.SINGLE.CMP0BUF */
+ }
+ 
+ void servoMove(double num){
+	 TCA0.SINGLE.CMP0BUF = 1250 + (num * 1000);
+	 _delay_ms(50);
  }
  
  ISR(ADC0_RESRDY_vect)
@@ -482,13 +523,10 @@ ISR(TCB0_INT_vect)
 		adc_reading value */
 	 if(ServoFollowADC == 1) {
 		 /* Set the servo position using TCA0.SINGLE.CMP0BUF */
+		
 		 TCA0.SINGLE.CMP0BUF = 1250 + adc_reading;
-		 if (TCA0.SINGLE.CMP0BUF > 2500) {
-			 TCA0.SINGLE.CMP0BUF = 2500;
-		 } else if(TCA0.SINGLE.CMP0BUF < 1250) {
-			 TCA0.SINGLE.CMP0BUF = 1250;
-		 }
 	 }
+	 
 }
  
 
