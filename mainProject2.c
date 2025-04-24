@@ -496,7 +496,7 @@ ISR(TCB0_INT_vect)
 	if(trigCount >= 10){
 		LED_Array[6].LED_PORT->OUTSET = LED_Array[6].bit_mapping;
 		/* Set the Port bit high, delay 10 us (use a software delay loop _delay_us(10)) and then set the Port bit low again */
-		_delay_us(10);
+		_delay_ms(10);
 		LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
 		
 		trigCount = 0;		
