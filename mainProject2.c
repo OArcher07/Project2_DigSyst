@@ -55,7 +55,7 @@
  
  uint32_t milliVolts = 0; // millivolts placeholder
  uint8_t topvalue = 0; // topvalue placeholder for the TCB3
- uint16_t clocksPulse = 0;
+ uint32_t clocksPulse = 0;
  uint16_t clocksT;
  uint16_t clocksP;
 
@@ -163,7 +163,7 @@ void Initialise_TCA0_SS_PWM() // works
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
 	 TCB2.CTRLA = 0b00000010; // not yet enabled
 	 /* Configure TCB0 in Input Capture Clock Frequency Measurement mode */
-	 TCB2.CTRLB = 0b00000011; // FRQ CNTMODE selected
+	 TCB2.CTRLB = 0b00000101; // FRQ CNTMODE selected
 	 /* Enable Capture or Timeout interrupt */
 	 TCB2.INTCTRL = 0b00000001;
 	 /* Enable Event Input and Event Edge, Rising Edge selected */
@@ -288,7 +288,7 @@ void Initialise_TCA0_SS_PWM() // works
 				case 'D':
 					/* Calculate distance for HC-SR04 Sensor to and object and 
 						report to user */
-					sprintf(str_buffer, "Distance = %d mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
+					sprintf(str_buffer, "Distance = %ld mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
 					sendmsg(str_buffer);
 					break;
 				case 's': 
@@ -401,7 +401,7 @@ void Initialise_TCA0_SS_PWM() // works
 		}
 		if (continuousDistance) {
 			/* If new distance data available, report distance to the user */
-			sprintf(str_buffer, "Distance = %d mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
+			sprintf(str_buffer, "Distance = %ld mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
 			sendmsg(str_buffer);
 		}
 		else if (continuousTime) {
@@ -491,13 +491,13 @@ ISR(TCB0_INT_vect)
 	static uint8_t pos = 0;
 	
 	/* Use a software counter to send a trigger pulse on PORTC bit 6 (LED_Array[4])*/
-	// 10 * 5ms = 50ms
+	// 20 * 5ms = 100ms
 	trigCount++;
-	if(trigCount >= 10){
-		LED_Array[6].LED_PORT->OUTSET = LED_Array[6].bit_mapping;
+	if(trigCount >= 20){
+		LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
 		/* Set the Port bit high, delay 10 us (use a software delay loop _delay_us(10)) and then set the Port bit low again */
-		_delay_ms(10);
-		LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
+		_delay_us(10);
+		LED_Array[4].LED_PORT->OUTCLR = LED_Array[4].bit_mapping;
 		
 		trigCount = 0;		
 	}
