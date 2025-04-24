@@ -158,6 +158,11 @@ void Initialise_TCA0_SS_PWM() // works
 	TCB0.CTRLA |= 0b00000001;
  }
  
+ void TCB1_init(){
+	 /* Enable TCB1 and set CLK_PER divider to 2: Timer clock = 10MHz now */
+	 TCB1.CTRLA = 0b00000010; // not yet enabled
+ }
+ 
  void Initialise_TCB2_ICP_PWFRQ()
  {
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
@@ -461,6 +466,8 @@ ISR(TCB0_INT_vect)
 	newDistanceData = 1;
  }
  
+ ISR(TCB1)
+ 
  
  ISR(TCB2_INT_vect)
  {
@@ -478,6 +485,7 @@ ISR(TCB0_INT_vect)
 		 LED_Array[5].LED_PORT->OUTCLR = LED_Array[5].bit_mapping;
 	 }
 	 LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
+	 
 }
   
  ISR(TCB3_INT_vect)
