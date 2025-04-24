@@ -30,7 +30,7 @@
  #define TWO_5V	512
  #define THREE_0V 614
  #define THREE_5V 716
- #define FOUR_0V	818
+ #define FOUR_0V 818
  #define FOUR_5V 921
  #define FIVE_0V 1023
 
@@ -53,8 +53,11 @@
  uint16_t adc_reading;		/* ADC0 RES has 10-bits, read it into a 16-bit variable */
  uint8_t ServoFollowADC;    /* Servo position based on ADC0 RES value */
  
- uint16_t trigCount = 0; // software trigger counter for TCB3
- uint16_t ruptCount = 0; // software interrupt counter for TCB3
+ uint32_t milliVolts = 0; // millivolts placeholder
+ uint8_t topvalue = 0; // topvalue placeholder for the TCB3
+ uint16_t clocksPulse = 0;
+ uint16_t clocksT;
+ uint16_t clocksP;
 
 
 void CLOCK_init (void);
@@ -67,6 +70,7 @@ void Set_Clear_Ports(uint8_t set);
 void USART3_init(void);
 void ADC0_init(void);
 void sendmsg(char* s); 
+void servoMove(double num);
 
 /* Later add TCB1 initialisation to detect 555 oscillation stopped */
 
@@ -95,7 +99,7 @@ void USART3_init(void) {
 	USART3.CTRLA = USART_TXCIE_bm;
 }
 
-void Initialise_TCA0_SS_PWM()
+void Initialise_TCA0_SS_PWM() // works
 {
 	/* Make PORTA Bit 0 an output (may be done in InitialiseLED_PORT_bits())
 	Set TCA0 to Single Slope PWM (CTRLB)
@@ -106,7 +110,7 @@ void Initialise_TCA0_SS_PWM()
 	
 	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
 	TCA0.SINGLE.CTRLA = 0b0001001; // DIV16 selected and TCA0 enabled
-	TCA0.SINGLE.CTRLB = 0b00000011; // Single Slope PWM
+	TCA0.SINGLE.CTRLB = 0b00010011; // Single Slope PWM, o
 	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency --> 20ms
 	TCA0.SINGLE.CMP0 = 1250; // (20ms * 0.1) = 1ms --> -90 degrees
 	
@@ -171,7 +175,7 @@ void Initialise_TCA0_SS_PWM()
 	 TCB2.CTRLA |= 0b00000001;
  }
  
- void TCB3_init(void)
+ void TCB3_init(void) // works
  {
 	 /* enable overflow interrupt */
 	 TCB3.INTCTRL = 0b00000001;
@@ -190,7 +194,7 @@ void Initialise_TCA0_SS_PWM()
 	 TCB3.CTRLA |= 0b00000001;
  }
 
- void ADC0_init(void)
+ void ADC0_init(void) //works
  {
 	 /* CTRLA: 10-bit resolution selected, Free Running Mode NOT selected, ADC0 not enabled yet */
 	 ADC0.CTRLA = 0b00000000;
@@ -258,23 +262,34 @@ void Initialise_TCA0_SS_PWM()
 				case 'v': 
 				case 'V':
 					/* Calculate milliVolts using integer arithmetic and send to user */
+					milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
+					sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+					sendmsg(str_buffer);
 					break;
 				case 't': 
 				case 'T':
 					/* Calculate 555 Time Period in us and send to user */
+					sprintf(str_buffer, "Period = %d us\n", clocksT / 10); 
+					sendmsg(str_buffer);
 					break;
 				case 'H': 
 				case 'h':
 					/* Calculate 555 High Pulse time in us and send to user */
+					sprintf(str_buffer, "High Pulse = %d us\n", clocksP / 10);
+					sendmsg(str_buffer);
 					break;
 				case 'L': 
 				case 'l':
 					/* Calculate 555 Low Pulse time in us and send to user */
+					sprintf(str_buffer, "Low Pulse = %d us\n", (clocksT - clocksP) / 10); 
+					sendmsg(str_buffer);
 					break;
 				case 'd': 
 				case 'D':
 					/* Calculate distance for HC-SR04 Sensor to and object and 
 						report to user */
+					sprintf(str_buffer, "Distance = %d mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
+					sendmsg(str_buffer);
 					break;
 				case 's': 
 				case 'S':
@@ -316,42 +331,67 @@ void Initialise_TCA0_SS_PWM()
 				case 'F':
 					ServoFollowADC = 1;
 					/* Set the Servo mode to follow ADC0 RES */
+					sprintf(str_buffer, "Servo mode: follow ADC0 RES\n");
+					sendmsg(str_buffer);
 					break;
 				case 'g':
 				case 'G':
 					ServoFollowADC = 0;
 					/* Set the Servo mode move at a user selected */
+					sprintf(str_buffer, "Servo mode: user selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '0':
 					/* Stop the Servomotor from moving */
+					topvalue = 0;
+					sprintf(str_buffer, "0 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '1':
-					ruptCount = 1;
+					topvalue = 200;
+					sprintf(str_buffer, "1 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '2':
-					ruptCount = 2;
+					topvalue = 150;
+					sprintf(str_buffer, "2 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '3':
-					ruptCount = 3;
+					topvalue = 100;
+					sprintf(str_buffer, "3 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '4':
-					ruptCount = 4;
+					topvalue = 80;
+					sprintf(str_buffer, "4 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '5':
-					ruptCount = 5;
+					topvalue = 50;
+					sprintf(str_buffer, "5 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '6':
-					ruptCount = 6;
+					topvalue = 40;
+					sprintf(str_buffer, "6 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '7':
-					ruptCount = 7;
+					topvalue = 30;
+					sprintf(str_buffer, "7 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '8':
-					ruptCount = 8;
+					topvalue = 20;
+					sprintf(str_buffer, "8 selected\n");
+					sendmsg(str_buffer);
 					break;
 				case '9':
-					/* Set the servomotor speed based on the specification table */
-					ruptCount = 9;
+					topvalue = 10;
+					/* Set the servomotor speed based on the specification table */				
+					sprintf(str_buffer, "9 selected\n");
+					sendmsg(str_buffer);
 					break;
 				default:
 					sprintf(str_buffer, "Unrecognized input: %c\n", ch);
@@ -361,13 +401,21 @@ void Initialise_TCA0_SS_PWM()
 		}
 		if (continuousDistance) {
 			/* If new distance data available, report distance to the user */
+			sprintf(str_buffer, "Distance = %d mm\n", (clocksPulse * 17) / 1000); // 340 --> 34 / 2 = 17
+			sendmsg(str_buffer);
 		}
 		else if (continuousTime) {
 			/* If new timer2 data available, report the 555 time period to the user */
+			sprintf(str_buffer, "Period = %d us\n", clocksT / 10);
+			sendmsg(str_buffer);
 		}
 		else if (continuousVolts) {
 			/* if new ADC0 data available, calculate the voltage in mV 
 			and report the value to the user */
+			/* Calculate milliVolts using integer arithmetic and send to user */
+			milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
+			sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+			sendmsg(str_buffer);
 		}
 	}
  }
@@ -409,8 +457,8 @@ ISR(TCB0_INT_vect)
  
 	/* Use this ISR to capture the HC-SR04 Pulse Width, which can be used 
 	   to calculate the distance to an object */
-	
-	//newDistanceData = 1;
+	clocksPulse = TCB0.CCMP;
+	newDistanceData = 1;
  }
  
  
@@ -420,22 +468,36 @@ ISR(TCB0_INT_vect)
 
 	/* Use this ISR to capture the 555 Period and High Pulse Width number of clocks, 
 		which can be used to calculate the Period and high and low pulse times */
+	 clocksT = TCB2.CNT;			/* In PW - Freq mode. CNT stops on the trailing edge until CCMP is read. Read order is important */
+	 clocksP = TCB2.CCMP;
+	 newTimeData = 1;
 	 
-	// newTimeData = 1;
+	 if((clocksT / 10) > 300) {
+		 LED_Array[5].LED_PORT->OUTSET = LED_Array[5].bit_mapping;
+	 } else {
+		 LED_Array[5].LED_PORT->OUTCLR = LED_Array[5].bit_mapping;
+	 }
+	 LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
 }
   
  ISR(TCB3_INT_vect)
  {
 	TCB3.INTFLAGS = TCB_CAPT_bm;	/* Software clears the INTFLAG */
 	
+	static uint8_t trigCount;
+	static uint8_t ruptCount;
+	
+	static uint8_t dir = 0;			//dir = 0 or 1 (up or down)
+	static uint8_t pos = 0;
+	
 	/* Use a software counter to send a trigger pulse on PORTC bit 6 (LED_Array[4])*/
 	// 10 * 5ms = 50ms
 	trigCount++;
 	if(trigCount >= 10){
-		LED_Array[4].LED_PORT->OUTSET = LED_Array[4].bit_mapping;
+		LED_Array[6].LED_PORT->OUTSET = LED_Array[6].bit_mapping;
 		/* Set the Port bit high, delay 10 us (use a software delay loop _delay_us(10)) and then set the Port bit low again */
-		_delay_ms(10);
-		LED_Array[4].LED_PORT->OUTCLR = LED_Array[4].bit_mapping;
+		_delay_us(10);
+		LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
 		
 		trigCount = 0;		
 	}
@@ -443,27 +505,36 @@ ISR(TCB0_INT_vect)
 	   the Servo motor to its next position. The software counter should count to the 
 	   value set by the numbers '1' to '9'. '0' is a special case */
 	if(ServoFollowADC == 0){
-		if(ruptCount == 1){
-			
-		} else if(ruptCount == 2){
-	
-		} else if(ruptCount == 3){
-			
-		} else if(ruptCount == 4){
-			
-		} else if(ruptCount == 5){
-			
-		} else if(ruptCount == 6){
-			
-		} else if(ruptCount == 7){
-			
-		} else if(ruptCount == 8){
-			
-		} else if(ruptCount == 9){
-			
+		ruptCount++;
+		// topvalue is between 10 - 200
+		if(topvalue > 0) {
+			if (ruptCount > topvalue)
+			{
+				ruptCount = 0;
+				// 20 steps at size 63 = 1260 (1250+1260 = 2510)
+				if(dir == 0) { 
+					TCA0.SINGLE.CMP0BUF = 1250 + (pos * 63);
+					pos++;
+					if(pos > 20) {
+						dir = 1;
+					}
+				} else {
+					TCA0.SINGLE.CMP0BUF = 1250 + (pos * 63);
+					pos--;
+					if(pos <= 0) {
+						dir = 0;
+					}
+				}
+			}
 		}
 	}
 	/* Set the new servo position using TCA0.SINGLE.CMP0BUF */
+	
+ }
+ 
+ void servoMove(double num){
+	 TCA0.SINGLE.CMP0BUF = 1250 + (num * 1000);
+	 _delay_ms(50);
  }
  
  ISR(ADC0_RESRDY_vect)
@@ -483,12 +554,8 @@ ISR(TCB0_INT_vect)
 	 if(ServoFollowADC == 1) {
 		 /* Set the servo position using TCA0.SINGLE.CMP0BUF */
 		 TCA0.SINGLE.CMP0BUF = 1250 + adc_reading;
-		 if (TCA0.SINGLE.CMP0BUF > 2500) {
-			 TCA0.SINGLE.CMP0BUF = 2500;
-		 } else if(TCA0.SINGLE.CMP0BUF < 1250) {
-			 TCA0.SINGLE.CMP0BUF = 1250;
-		 }
 	 }
+	 
 }
  
 
