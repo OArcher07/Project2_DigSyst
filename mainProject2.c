@@ -158,11 +158,6 @@ void Initialise_TCA0_SS_PWM() // works
 	TCB0.CTRLA |= 0b00000001;
  }
  
- void TCB1_init(){
-	 /* Enable TCB1 and set CLK_PER divider to 2: Timer clock = 10MHz now */
-	 TCB1.CTRLA = 0b00000010; // not yet enabled
- }
- 
  void Initialise_TCB2_ICP_PWFRQ()
  {
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
@@ -268,7 +263,7 @@ void Initialise_TCA0_SS_PWM() // works
 				case 'V':
 					/* Calculate milliVolts using integer arithmetic and send to user */
 					milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
-					sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+					sprintf(str_buffer, "Voltage = %ld mV\n", milliVolts);
 					sendmsg(str_buffer);
 					break;
 				case 't': 
@@ -419,7 +414,7 @@ void Initialise_TCA0_SS_PWM() // works
 			and report the value to the user */
 			/* Calculate milliVolts using integer arithmetic and send to user */
 			milliVolts = (((uint32_t) adc_reading * 5000) / 1023);
-			sprintf(str_buffer, "milliVolts = %ld\n", milliVolts);
+			sprintf(str_buffer, "Voltage = %ld mV\n", milliVolts);
 			sendmsg(str_buffer);
 		}
 	}
@@ -465,8 +460,6 @@ ISR(TCB0_INT_vect)
 	clocksPulse = TCB0.CCMP;
 	newDistanceData = 1;
  }
- 
- ISR(TCB1)
  
  
  ISR(TCB2_INT_vect)
