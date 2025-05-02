@@ -4,6 +4,7 @@
  * Created: 11/03/2025 17:37:30
  * Author : Ciaran.MacNamee
  * Modified By: Amelia Humphrey & Olivia Archer
+ * Challenge completed!
  */ 
 
 
@@ -71,6 +72,7 @@ void USART3_init(void);
 void ADC0_init(void);
 void sendmsg(char* s); 
 void servoMove(double num);
+void TCB1_init(void);
 
 /* Later add TCB1 initialisation to detect 555 oscillation stopped */
 
@@ -99,7 +101,7 @@ void USART3_init(void) {
 	USART3.CTRLA = USART_TXCIE_bm;
 }
 
-void Initialise_TCA0_SS_PWM() // works
+void Initialise_TCA0_SS_PWM()
 {
 	/* Make PORTA Bit 0 an output (may be done in InitialiseLED_PORT_bits())
 	Set TCA0 to Single Slope PWM (CTRLB)
@@ -108,9 +110,9 @@ void Initialise_TCA0_SS_PWM() // works
 	Timer/Counter TCA0 Clock Source: CLK_PER divided by 16 and TCA0 enabled (CTRLA)
 	(These are suggested settings – you may use your own if you can make them work) */
 	
-	PORTA.DIRSET = 0b00000001; // enables bit 0 as output
-	TCA0.SINGLE.CTRLA = 0b0001001; // DIV16 selected and TCA0 enabled
-	TCA0.SINGLE.CTRLB = 0b00010011; // Single Slope PWM, o
+	PORTA.DIRSET = 0b00000001; // senables bit 0 as output
+	TCA0.SINGLE.CTRLA = 0b00001001; // DIV16 selected and TCA0 enabled
+	TCA0.SINGLE.CTRLB = 0b00010011; // Single Slope PWM
 	TCA0.SINGLE.PER = 24999; // 50Hz PWM frequency --> 20ms
 	TCA0.SINGLE.CMP0 = 1250; // (20ms * 0.1) = 1ms --> -90 degrees
 	
@@ -125,11 +127,12 @@ void Initialise_TCA0_SS_PWM() // works
 	EVSYS.USERTCB0 = 0b00000001;
 	
 	/* Set Port E Pin 3 (PE3) as input event this is on Channel 4 */
-	PORTE.DIRCLR = 0b00000011; // clears bits 0 and 1, setting PIN3 to input
+	PORTE.DIRCLR = PIN3_bm; // clears bits 0 and 1, setting PIN3 to input
 	/* Connect user to event channel 4 */
 	EVSYS.CHANNEL4 = 0b01000011;
 	/* TCB2 is the Channel 4 user */
 	EVSYS.USERTCB2 = EVSYS_CHANNEL_CHANNEL4_gc;
+	EVSYS.USERTCB1 = EVSYS_CHANNEL_CHANNEL4_gc;
 	
 	/* Set TCB3 as the Generator for any other Channel */
 	EVSYS.CHANNEL3 = 0b10100110;
@@ -139,6 +142,8 @@ void Initialise_TCA0_SS_PWM() // works
 									// 0b00000100 selects Channel 3
 	/* TCB3 starts ADC0  */
 	/* Assuming enable when TCB3 is enabled */
+	
+	
 }
 
  void Initialise_TCB0_ICP_PW()
@@ -158,12 +163,28 @@ void Initialise_TCA0_SS_PWM() // works
 	TCB0.CTRLA |= 0b00000001;
  }
  
+ void TCB1_init() {
+	 /* PER divided by 2 and Enable the TCB1 */
+	 TCB1.CTRLA = 0b00000010; // not yet enabled
+	 /* Periodic Interrupt Mode */
+	 TCB1.CTRLB = 0b00000000;
+	 /* Set TCB1.CCMP for 5ms interrupt rate */
+	 // f(TCB) = 20MHz / 2 = 10MHz
+	 // 5ms = 5000us, 5000us / (1/10MHz) = 50000us
+	 TCB1.CCMP = 50000;
+	 /* Enable the interrupt */
+	 TCB1.INTCTRL = 0b00000001;
+	 
+	 /* Enables TCB1 */
+	 TCB1.CTRLA |= 0b00000001;
+ }
+ 
  void Initialise_TCB2_ICP_PWFRQ()
  {
 	 /* Enable TCB2 and set CLK_PER divider to 2: Timer clock = 10MHz now */
 	 TCB2.CTRLA = 0b00000010; // not yet enabled
-	 /* Configure TCB0 in Input Capture Clock Frequency Measurement mode */
-	 TCB2.CTRLB = 0b00000101; // FRQ CNTMODE selected
+	 /* Configure TCB2 in Input Capture Clock Frequency Measurement mode */
+	 TCB2.CTRLB = 0b00000101; // PWFRQ CNTMODE selected
 	 /* Enable Capture or Timeout interrupt */
 	 TCB2.INTCTRL = 0b00000001;
 	 /* Enable Event Input and Event Edge, Rising Edge selected */
@@ -175,10 +196,8 @@ void Initialise_TCA0_SS_PWM() // works
 	 TCB2.CTRLA |= 0b00000001;
  }
  
- void TCB3_init(void) // works
+ void TCB3_init(void)
  {
-	 /* enable overflow interrupt */
-	 TCB3.INTCTRL = 0b00000001;
 	 /* PER divided by 2 and Enable the TCB3 */
 	 TCB3.CTRLA = 0b00000010; // not yet enabled
 	 /* Periodic Interrupt Mode */
@@ -211,8 +230,7 @@ void Initialise_TCA0_SS_PWM() // works
 	 /* INTCTRL: Enable an interrupt when conversion complete (RESRDY) */
 	 ADC0.INTCTRL = (1<<0);
 	 /* Enable ADC0 and leave the other CTRLA bits unchanged, note |= */
-	 ADC0.CTRLA |= 0b00000001;	
-	 //ADC0.COMMAND = 1;
+	 ADC0.CTRLA |= 0b00000001;
 }
  
  
@@ -246,6 +264,7 @@ void Initialise_TCA0_SS_PWM() // works
 	Initialise_TCB2_ICP_PWFRQ();
 	TCB3_init();
 	ADC0_init();
+	TCB1_init();
 	
 	sei(); /* Enable Global Interrupts */
  
@@ -461,6 +480,10 @@ ISR(TCB0_INT_vect)
 	newDistanceData = 1;
  }
  
+ ISR(TCB1_INT_vect) {
+	 TCB1.INTFLAGS = TCB_CAPT_bm; /* Clear the interrupt flag */
+	 LED_Array[6].LED_PORT->OUTSET = LED_Array[6].bit_mapping;
+ }
  
  ISR(TCB2_INT_vect)
  {
@@ -477,7 +500,9 @@ ISR(TCB0_INT_vect)
 	 } else {
 		 LED_Array[5].LED_PORT->OUTCLR = LED_Array[5].bit_mapping;
 	 }
+	 
 	 LED_Array[6].LED_PORT->OUTCLR = LED_Array[6].bit_mapping;
+	 TCB1.CNT = 0;
 	 
 }
   
